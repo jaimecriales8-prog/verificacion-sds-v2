@@ -128,9 +128,6 @@ export default function ValidadorPage() {
           </>
         )}
 
-        <div className="mt-8 text-center">
-          <a href="/admin" className="text-[12px] text-[#888780]">Administración</a>
-        </div>
       </div>
     </div>
   )
