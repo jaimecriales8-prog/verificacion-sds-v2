@@ -28,6 +28,8 @@ export default function AdminPage() {
   const [filtroEst, setFiltroEst] = useState('')
   const [alerta, setAlerta] = useState<{ tipo: 'ok' | 'er'; msg: string } | null>(null)
   const [cargando, setCargando] = useState(false)
+  const [modalBase, setModalBase] = useState(false)
+  const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const cargarDatos = useCallback(async () => {
@@ -159,9 +161,14 @@ export default function AdminPage() {
   }
 
   function pedirModoYCargar(file: File) {
-    const modo = confirm('¿Mantener validaciones existentes?\n\nAceptar = Mantener\nCancelar = Reiniciar todo')
-      ? 'mantener' : 'reset'
-    cargarExcel(file, modo)
+    setArchivoSeleccionado(file)
+    setModalBase(true)
+  }
+
+  function confirmarCambioBase(modo: 'mantener' | 'reset') {
+    setModalBase(false)
+    if (archivoSeleccionado) cargarExcel(archivoSeleccionado, modo)
+    setArchivoSeleccionado(null)
   }
 
   async function descargar() {
@@ -366,6 +373,36 @@ export default function AdminPage() {
           <a href="/" className="text-[12px] text-[#888780]">← Vista validador</a>
         </div>
       </div>
+
+      {/* Modal cambiar base */}
+      {modalBase && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-[16px] font-bold">📄 Cambiar base de datos</h2>
+              <button onClick={() => { setModalBase(false); setArchivoSeleccionado(null); if (fileRef.current) fileRef.current.value = '' }}
+                className="text-[#888780] text-xl leading-none px-1">×</button>
+            </div>
+            <p className="text-[13px] text-[#5F5E5A] mb-5">Selecciona cómo cargar la nueva base:</p>
+            <div className="flex flex-col gap-3 mb-5">
+              <button onClick={() => confirmarCambioBase('mantener')}
+                className="border-[1.5px] border-[#e2e0d8] rounded-xl p-4 text-left hover:border-[#1D9E75]">
+                <div className="text-[14px] font-bold mb-1">✓ Mantener validaciones</div>
+                <div className="text-[12px] text-[#5F5E5A]">Carga la nueva base y conserva los SI ya registrados para las cédulas que coincidan.</div>
+              </button>
+              <button onClick={() => confirmarCambioBase('reset')}
+                className="border-[1.5px] border-[#e2e0d8] rounded-xl p-4 text-left hover:border-[#A32D2D]">
+                <div className="text-[14px] font-bold mb-1">⚠ Reiniciar todo</div>
+                <div className="text-[12px] text-[#5F5E5A]">Carga la nueva base y borra todos los SI. Empieza desde cero.</div>
+              </button>
+            </div>
+            <button onClick={() => { setModalBase(false); setArchivoSeleccionado(null); if (fileRef.current) fileRef.current.value = '' }}
+              className="w-full py-2.5 border border-[#e2e0d8] rounded-xl text-[13px] font-semibold text-[#5F5E5A]">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
