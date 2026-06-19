@@ -66,7 +66,6 @@ export default function ValidadorPage() {
   return (
     <div className="min-h-screen bg-[#fafaf8]">
       <div className="max-w-md mx-auto px-5 pt-8 pb-16">
-        <h1 className="text-lg font-bold text-[#085041] mb-6">Verificación SDS 2026</h1>
 
         {!validacionActiva && (
           <div className="bg-[#444441] text-white rounded-xl p-5 text-center mb-6">
