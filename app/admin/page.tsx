@@ -31,13 +31,32 @@ export default function AdminPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const cargarDatos = useCallback(async () => {
-    const [{ data: ejs }, { data: vals }, { data: cfg }] = await Promise.all([
-      supabase.from('ejecutores').select('*').order('indice'),
-      supabase.from('validaciones').select('cedula,estado'),
-      supabase.from('config').select('value').eq('key', 'validacion_activa').single(),
-    ])
-    if (ejs) setEjecutores(ejs)
-    if (vals) setValidaciones(new Map(vals.map((v: Validacion) => [v.cedula, v.estado])))
+    // Paginar ejecutores de 1000 en 1000
+    let todosEjs: Ejecutor[] = []
+    let desde = 0
+    const PAGE = 1000
+    while (true) {
+      const { data } = await supabase.from('ejecutores').select('*').order('indice').range(desde, desde + PAGE - 1)
+      if (!data || data.length === 0) break
+      todosEjs = todosEjs.concat(data)
+      if (data.length < PAGE) break
+      desde += PAGE
+    }
+
+    // Paginar validaciones
+    let todasVals: Validacion[] = []
+    desde = 0
+    while (true) {
+      const { data } = await supabase.from('validaciones').select('cedula,estado').range(desde, desde + PAGE - 1)
+      if (!data || data.length === 0) break
+      todasVals = todasVals.concat(data)
+      if (data.length < PAGE) break
+      desde += PAGE
+    }
+
+    const { data: cfg } = await supabase.from('config').select('value').eq('key', 'validacion_activa').single()
+    setEjecutores(todosEjs)
+    setValidaciones(new Map(todasVals.map((v: Validacion) => [v.cedula, v.estado])))
     if (cfg) setValidacionActiva(cfg.value !== 'off')
   }, [])
 
