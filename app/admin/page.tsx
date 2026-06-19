@@ -551,9 +551,6 @@ export default function AdminPage() {
 
         </> }
 
-        <div className="mt-6 text-center">
-          <a href="/" className="text-[12px] text-[#888780]">← Vista validador</a>
-        </div>
       </div>
 
       {/* Modal editar ejecutor */}
