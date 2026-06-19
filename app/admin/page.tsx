@@ -120,8 +120,9 @@ export default function AdminPage() {
         return
       }
 
-      const nuevos: Ejecutor[] = []
-      let cc = '', cl = '', ri = 0
+      // Mapa para deduplicar: última aparición de cada cédula gana
+      const mapaEjs = new Map<string, Omit<Ejecutor, 'indice'>>()
+      let cc = '', cl = ''
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i] as string[]
@@ -131,18 +132,17 @@ export default function AdminPage() {
           ? `${row[iN] || ''} ${row[iA] || ''}`.trim()
           : String(row[iN >= 0 ? iN : iA] || '').trim()
 
-        if (!ced || ced === 'nan') continue
+        if (!ced || ced === 'nan' || !nom) continue
 
-        if (rol === 'COORDINADOR') {
-          cc = nom; cl = ''
-          nuevos.push({ cedula: ced, nombre: nom, coordinador: nom, lider: '', indice: ri++ })
-        } else if (rol === 'LIDER') {
-          cl = nom || (iL >= 0 ? String(row[iL] || '').trim() : '')
-          nuevos.push({ cedula: ced, nombre: nom, coordinador: cc, lider: nom, indice: ri++ })
-        } else if (rol === 'EJECUTOR' || rol === 'ENLACE') {
-          nuevos.push({ cedula: ced, nombre: nom, coordinador: cc, lider: cl, indice: ri++ })
-        }
+        // Actualizar contexto jerárquico
+        if (rol === 'COORDINADOR') { cc = nom; cl = '' }
+        else if (rol === 'LIDER') { cl = nom }
+
+        // Guardar persona con su contexto actual (sobreescribe si ya existe)
+        mapaEjs.set(ced, { cedula: ced, nombre: nom, coordinador: cc, lider: cl })
       }
+
+      const nuevos: Ejecutor[] = Array.from(mapaEjs.values()).map((e, idx) => ({ ...e, indice: idx }))
 
       if (nuevos.length === 0) { showAlerta('er', 'No se encontraron ejecutores en el archivo.'); return }
 
