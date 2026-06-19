@@ -30,6 +30,10 @@ export default function AdminPage() {
   const [cargando, setCargando] = useState(false)
   const [modalBase, setModalBase] = useState(false)
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null)
+  const [modalAjuste, setModalAjuste] = useState<Ejecutor | null>(null)
+  const [ajusteForm, setAjusteForm] = useState({ cedula: '', nombre: '', coordinador: '', lider: '' })
+  const [busquedaAjuste, setBusquedaAjuste] = useState('')
+  const [tabActiva, setTabActiva] = useState<'consolidado' | 'ajustes'>('consolidado')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const cargarDatos = useCallback(async () => {
@@ -163,6 +167,46 @@ export default function AdminPage() {
   function pedirModoYCargar(file: File) {
     setArchivoSeleccionado(file)
     setModalBase(true)
+  }
+
+  function abrirAjuste(ej: Ejecutor) {
+    setAjusteForm({ cedula: ej.cedula, nombre: ej.nombre, coordinador: ej.coordinador, lider: ej.lider })
+    setModalAjuste(ej)
+  }
+
+  async function guardarAjuste() {
+    if (!modalAjuste) return
+    const { cedula, nombre, coordinador, lider } = ajusteForm
+    const cedulaNueva = cedula.trim()
+    const updates: Partial<Ejecutor> = { nombre: nombre.trim(), coordinador: coordinador.trim(), lider: lider.trim() }
+
+    // Si cambió la cédula, insertar nuevo y borrar viejo
+    if (cedulaNueva !== modalAjuste.cedula) {
+      await supabase.from('ejecutores').insert({ ...modalAjuste, ...updates, cedula: cedulaNueva })
+      await supabase.from('ejecutores').delete().eq('cedula', modalAjuste.cedula)
+      // Migrar validación si existe
+      const val = validaciones.get(modalAjuste.cedula)
+      if (val) {
+        await supabase.from('validaciones').upsert({ cedula: cedulaNueva, estado: val, updated_at: new Date().toISOString() })
+        await supabase.from('validaciones').delete().eq('cedula', modalAjuste.cedula)
+      }
+    } else {
+      await supabase.from('ejecutores').update(updates).eq('cedula', modalAjuste.cedula)
+    }
+
+    setModalAjuste(null)
+    showAlerta('ok', '✓ Ejecutor actualizado')
+    cargarDatos()
+  }
+
+  async function ajustarValidacion(cedula: string, accion: 'SI' | 'quitar') {
+    if (accion === 'SI') {
+      await supabase.from('validaciones').upsert({ cedula, estado: 'SI', updated_at: new Date().toISOString() })
+      setValidaciones(prev => new Map(prev).set(cedula, 'SI'))
+    } else {
+      await supabase.from('validaciones').delete().eq('cedula', cedula)
+      setValidaciones(prev => { const m = new Map(prev); m.delete(cedula); return m })
+    }
   }
 
   function confirmarCambioBase(modo: 'mantener' | 'reset') {
@@ -303,6 +347,61 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-1 mb-5 bg-[#F1EFE8] rounded-xl p-1">
+          <button onClick={() => setTabActiva('consolidado')}
+            className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${tabActiva === 'consolidado' ? 'bg-white text-[#085041] shadow-sm' : 'text-[#888780]'}`}>
+            Consolidado
+          </button>
+          <button onClick={() => setTabActiva('ajustes')}
+            className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition-colors ${tabActiva === 'ajustes' ? 'bg-white text-[#085041] shadow-sm' : 'text-[#888780]'}`}>
+            Ajustes
+          </button>
+        </div>
+
+        {/* TAB AJUSTES */}
+        {tabActiva === 'ajustes' && (
+          <div>
+            <input
+              type="text"
+              placeholder="Buscar por cédula o nombre..."
+              value={busquedaAjuste}
+              onChange={e => setBusquedaAjuste(e.target.value)}
+              className="w-full px-4 py-3 border-[1.5px] border-[#e2e0d8] rounded-xl mb-4 outline-none focus:border-[#1D9E75] text-[14px] bg-white"
+            />
+            <div className="bg-white border border-[#e2e0d8] rounded-xl overflow-hidden">
+              {ejecutores
+                .filter(e => {
+                  const q = busquedaAjuste.toLowerCase()
+                  return !q || e.cedula.includes(q) || e.nombre.toLowerCase().includes(q)
+                })
+                .slice(0, 50)
+                .map(e => (
+                  <div key={e.cedula} className="flex items-center justify-between px-4 py-3 border-b border-[#f1efe8] last:border-0">
+                    <div>
+                      <div className="text-[13px] font-semibold">{e.nombre}</div>
+                      <div className="text-[11px] text-[#888780]">CC {e.cedula} · {e.lider}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] font-bold px-2 py-1 rounded-lg ${validaciones.get(e.cedula) === 'SI' ? 'bg-[#E1F5EE] text-[#085041]' : 'bg-[#F1EFE8] text-[#888780]'}`}>
+                        {validaciones.get(e.cedula) === 'SI' ? 'SI' : 'PEND'}
+                      </span>
+                      <button onClick={() => abrirAjuste(e)}
+                        className="text-[12px] px-3 py-1.5 bg-[#E6F1FB] text-[#185FA5] rounded-lg font-semibold">
+                        Editar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              {busquedaAjuste.length < 2 && (
+                <div className="px-4 py-6 text-center text-[12px] text-[#888780]">Escribe al menos 2 caracteres para buscar</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB CONSOLIDADO */}
+        {tabActiva === 'consolidado' && <>
         {/* Filtros */}
         <div className="flex gap-2 flex-wrap mb-4">
           <select value={filtroCoord} onChange={e => { setFiltroCoord(e.target.value); setFiltroLider('') }}
@@ -369,10 +468,67 @@ export default function AdminPage() {
           </table>
         </div>
 
+        </> }
+
         <div className="mt-6 text-center">
           <a href="/" className="text-[12px] text-[#888780]">← Vista validador</a>
         </div>
       </div>
+
+      {/* Modal editar ejecutor */}
+      {modalAjuste && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[16px] font-bold">✏️ Editar ejecutor</h2>
+              <button onClick={() => setModalAjuste(null)} className="text-[#888780] text-xl px-1">×</button>
+            </div>
+            <div className="flex flex-col gap-3 mb-4">
+              {[
+                { label: 'Cédula', key: 'cedula' },
+                { label: 'Nombre completo', key: 'nombre' },
+                { label: 'Coordinador', key: 'coordinador' },
+                { label: 'Líder', key: 'lider' },
+              ].map(({ label, key }) => (
+                <div key={key}>
+                  <label className="text-[11px] text-[#888780] font-semibold uppercase mb-1 block">{label}</label>
+                  <input
+                    value={ajusteForm[key as keyof typeof ajusteForm]}
+                    onChange={e => setAjusteForm(f => ({ ...f, [key]: e.target.value }))}
+                    className="w-full px-3 py-2.5 border-[1.5px] border-[#e2e0d8] rounded-xl text-[14px] outline-none focus:border-[#1D9E75]"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Ajuste de validación */}
+            <div className="bg-[#F1EFE8] rounded-xl p-3 mb-4">
+              <div className="text-[11px] font-bold text-[#888780] uppercase mb-2">Validación</div>
+              <div className="flex gap-2">
+                <button onClick={() => { ajustarValidacion(modalAjuste.cedula, 'SI'); setModalAjuste(null) }}
+                  className="flex-1 py-2 bg-[#1D9E75] text-white rounded-lg text-[13px] font-bold">
+                  Confirmar SI
+                </button>
+                <button onClick={() => { ajustarValidacion(modalAjuste.cedula, 'quitar'); setModalAjuste(null) }}
+                  className="flex-1 py-2 border border-[#A32D2D] text-[#A32D2D] rounded-lg text-[13px] font-bold">
+                  Quitar SI
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setModalAjuste(null)}
+                className="flex-1 py-2.5 border border-[#e2e0d8] rounded-xl text-[13px] font-semibold text-[#5F5E5A]">
+                Cancelar
+              </button>
+              <button onClick={guardarAjuste}
+                className="flex-1 py-2.5 bg-[#085041] text-white rounded-xl text-[13px] font-bold">
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal cambiar base */}
       {modalBase && (
