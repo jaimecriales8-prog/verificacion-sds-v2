@@ -155,11 +155,17 @@ export default function AdminPage() {
         siguen = batch.length === 200
       }
 
-      // Insertar en chunks de 200
-      for (let i = 0; i < nuevos.length; i += 200) {
-        const { error } = await supabase.from('ejecutores').insert(nuevos.slice(i, i + 200))
+      // Deduplicar por cédula (quedar con el primero)
+      const vistos = new Set<string>()
+      const unicos = nuevos.filter(e => { if (vistos.has(e.cedula)) return false; vistos.add(e.cedula); return true })
+
+      // Upsert en chunks de 200
+      for (let i = 0; i < unicos.length; i += 200) {
+        const { error } = await supabase.from('ejecutores').upsert(unicos.slice(i, i + 200))
         if (error) { showAlerta('er', `Error en inserción (fila ${i}): ${error.message}`); return }
       }
+      // Actualizar nuevos para el mensaje final
+      nuevos.length = 0; unicos.forEach(u => nuevos.push(u))
 
       if (modo === 'reset') {
         await supabase.from('validaciones').delete().neq('cedula', '__never__')
