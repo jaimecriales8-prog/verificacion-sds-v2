@@ -142,11 +142,19 @@ export default function AdminPage() {
 
       if (nuevos.length === 0) { showAlerta('er', 'No se encontraron ejecutores en el archivo.'); return }
 
-      // Borrar y reemplazar ejecutores
-      await supabase.from('ejecutores').delete().neq('cedula', '__never__')
+      // Borrar en bucle hasta limpiar todos (Supabase limita a 1000 por operación)
+      while (true) {
+        const { data: batch } = await supabase.from('ejecutores').select('cedula').limit(1000)
+        if (!batch || batch.length === 0) break
+        await supabase.from('ejecutores').delete().in('cedula', batch.map(r => r.cedula))
+        if (batch.length < 1000) break
+      }
+
+      // Insertar en chunks de 500
       const chunkSize = 500
       for (let i = 0; i < nuevos.length; i += chunkSize) {
-        await supabase.from('ejecutores').insert(nuevos.slice(i, i + chunkSize))
+        const { error } = await supabase.from('ejecutores').insert(nuevos.slice(i, i + chunkSize))
+        if (error) { showAlerta('er', `Error insertando chunk ${i}: ${error.message}`); return }
       }
 
       if (modo === 'reset') {
