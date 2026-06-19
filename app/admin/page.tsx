@@ -422,49 +422,75 @@ export default function AdminPage() {
           </select>
         </div>
 
-        {/* Tabla */}
+        {/* Tabla jerárquica */}
         <div className="bg-white border border-[#e2e0d8] rounded-xl overflow-hidden">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="border-b border-[#e2e0d8] text-[11px] text-[#888780] uppercase">
-                <th className="text-left px-4 py-3 font-semibold">Líder</th>
-                <th className="text-right px-4 py-3 font-semibold">Total</th>
-                <th className="text-right px-4 py-3 font-semibold text-[#085041]">SI</th>
-                <th className="text-right px-4 py-3 font-semibold">%</th>
+              <tr className="border-b border-[#e2e0d8] text-[11px] text-[#888780] uppercase bg-[#fafaf8]">
+                <th className="text-left px-4 py-3 font-semibold">Coordinador / Líder</th>
+                <th className="text-right px-4 py-3 font-semibold">Ejecutores</th>
+                <th className="text-right px-4 py-3 font-semibold text-[#085041]">Validados</th>
+                <th className="text-right px-4 py-3 font-semibold text-[#888780]">Pendientes</th>
+                <th className="text-right px-4 py-3 font-semibold">% Ejec.</th>
               </tr>
             </thead>
             <tbody>
               {filas.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-[#888780]">Sin resultados</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-[#888780]">Sin resultados</td></tr>
               )}
-              {filas.map((f, i) => (
-                <tr key={i} className="border-t border-[#f1efe8]">
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-[#2C2C2A]">{f.lider || '—'}</div>
-                    <div className="text-[11px] text-[#888780]">{f.coordinador}</div>
-                  </td>
-                  <td className="px-4 py-3 text-right text-[#888780]">{f.total}</td>
-                  <td className="px-4 py-3 text-right font-bold text-[#085041]">{f.si}</td>
-                  <td className="px-4 py-3 text-right text-[#888780]">
-                    {f.total ? Math.round(f.si / f.total * 100) : 0}%
-                  </td>
-                </tr>
-              ))}
+              {(() => {
+                const rows: React.ReactNode[] = []
+                const coordsAgrupados = new Map<string, FilaLider[]>()
+                filas.forEach(f => {
+                  if (!coordsAgrupados.has(f.coordinador)) coordsAgrupados.set(f.coordinador, [])
+                  coordsAgrupados.get(f.coordinador)!.push(f)
+                })
+                coordsAgrupados.forEach((liders, coord) => {
+                  const totCoord = liders.reduce((a, f) => a + f.total, 0)
+                  const siCoord = liders.reduce((a, f) => a + f.si, 0)
+                  const pctCoord = totCoord ? Math.round(siCoord / totCoord * 100) : 0
+                  rows.push(
+                    <tr key={`coord-${coord}`} className="bg-[#E1F5EE] border-t border-[#c5e8da]">
+                      <td className="px-4 py-2.5 font-bold text-[#085041] text-[12px]">{coord || '—'}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-[#085041] text-[12px]">{totCoord}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-[#085041] text-[12px]">{siCoord}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-[#A32D2D] text-[12px]">{totCoord - siCoord}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-[#085041] text-[12px]">{pctCoord}%</td>
+                    </tr>
+                  )
+                  liders.forEach((f, i) => {
+                    const pend = f.total - f.si
+                    const pct = f.total ? Math.round(f.si / f.total * 100) : 0
+                    rows.push(
+                      <tr key={`lider-${coord}-${i}`} className="border-t border-[#f1efe8] hover:bg-[#fafaf8]">
+                        <td className="px-4 py-2.5 pl-8 text-[#2C2C2A]">{f.lider || '—'}</td>
+                        <td className="px-4 py-2.5 text-right text-[#888780]">{f.total}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-[#085041]">{f.si}</td>
+                        <td className="px-4 py-2.5 text-right text-[#A32D2D]">{pend}</td>
+                        <td className="px-4 py-2.5 text-right text-[#888780]">{pct}%</td>
+                      </tr>
+                    )
+                  })
+                })
+                return rows
+              })()}
             </tbody>
-            {filas.length > 0 && (
-              <tfoot>
-                <tr className="border-t-2 border-[#e2e0d8] bg-[#fafaf8] font-bold">
-                  <td className="px-4 py-3 text-[12px]">Total</td>
-                  <td className="px-4 py-3 text-right">{ejFiltrados.length}</td>
-                  <td className="px-4 py-3 text-right text-[#085041]">
-                    {ejFiltrados.filter(e => validaciones.get(e.cedula) === 'SI').length}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {ejFiltrados.length ? Math.round(ejFiltrados.filter(e => validaciones.get(e.cedula) === 'SI').length / ejFiltrados.length * 100) : 0}%
-                  </td>
-                </tr>
-              </tfoot>
-            )}
+            {filas.length > 0 && (() => {
+              const totFil = ejFiltrados.length
+              const siFil = ejFiltrados.filter(e => validaciones.get(e.cedula) === 'SI').length
+              const pctFil = totFil ? Math.round(siFil / totFil * 100) : 0
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-[#e2e0d8] bg-[#fafaf8] font-bold text-[12px]">
+                    <td className="px-4 py-3">TOTAL</td>
+                    <td className="px-4 py-3 text-right">{totFil}</td>
+                    <td className="px-4 py-3 text-right text-[#085041]">{siFil}</td>
+                    <td className="px-4 py-3 text-right text-[#A32D2D]">{totFil - siFil}</td>
+                    <td className="px-4 py-3 text-right">{pctFil}%</td>
+                  </tr>
+                </tfoot>
+              )
+            })()}
           </table>
         </div>
 
