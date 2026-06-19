@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [ajusteForm, setAjusteForm] = useState({ cedula: '', nombre: '', coordinador: '', lider: '' })
   const [busquedaAjuste, setBusquedaAjuste] = useState('')
   const [tabActiva, setTabActiva] = useState<'consolidado' | 'ajustes'>('consolidado')
+  const [coordAbiertos, setCoordAbiertos] = useState<Set<string>>(new Set())
   const fileRef = useRef<HTMLInputElement>(null)
 
   const cargarDatos = useCallback(async () => {
@@ -446,77 +447,96 @@ export default function AdminPage() {
           </select>
         </div>
 
-        {/* Tabla jerárquica */}
-        <div className="bg-white border border-[#e2e0d8] rounded-xl overflow-hidden">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="border-b border-[#e2e0d8] text-[11px] text-[#888780] uppercase bg-[#fafaf8]">
-                <th className="text-left px-4 py-3 font-semibold">Coordinador / Líder</th>
-                <th className="text-right px-4 py-3 font-semibold">Ejecutores</th>
-                <th className="text-right px-4 py-3 font-semibold text-[#085041]">Validados</th>
-                <th className="text-right px-4 py-3 font-semibold text-[#888780]">Pendientes</th>
-                <th className="text-right px-4 py-3 font-semibold">% Ejec.</th>
-              </tr>
-            </thead>
-            <tbody>
+        {/* Tabla jerárquica acordeón */}
+        {(() => {
+          const coordsAgrupados = new Map<string, FilaLider[]>()
+          filas.forEach(f => {
+            if (!coordsAgrupados.has(f.coordinador)) coordsAgrupados.set(f.coordinador, [])
+            coordsAgrupados.get(f.coordinador)!.push(f)
+          })
+          const totFil = ejFiltrados.length
+          const siFil = ejFiltrados.filter(e => validaciones.get(e.cedula) === 'SI').length
+          const pctFil = totFil ? Math.round(siFil / totFil * 100) : 0
+
+          return (
+            <div className="flex flex-col gap-2">
               {filas.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-[#888780]">Sin resultados</td></tr>
+                <div className="bg-white border border-[#e2e0d8] rounded-xl px-4 py-8 text-center text-[#888780] text-[13px]">Sin resultados</div>
               )}
-              {(() => {
-                const rows: React.ReactNode[] = []
-                const coordsAgrupados = new Map<string, FilaLider[]>()
-                filas.forEach(f => {
-                  if (!coordsAgrupados.has(f.coordinador)) coordsAgrupados.set(f.coordinador, [])
-                  coordsAgrupados.get(f.coordinador)!.push(f)
+              {Array.from(coordsAgrupados.entries()).map(([coord, liders]) => {
+                const totCoord = liders.reduce((a, f) => a + f.total, 0)
+                const siCoord = liders.reduce((a, f) => a + f.si, 0)
+                const pctCoord = totCoord ? Math.round(siCoord / totCoord * 100) : 0
+                const abierto = coordAbiertos.has(coord)
+                const toggle = () => setCoordAbiertos(prev => {
+                  const s = new Set(prev)
+                  s.has(coord) ? s.delete(coord) : s.add(coord)
+                  return s
                 })
-                coordsAgrupados.forEach((liders, coord) => {
-                  const totCoord = liders.reduce((a, f) => a + f.total, 0)
-                  const siCoord = liders.reduce((a, f) => a + f.si, 0)
-                  const pctCoord = totCoord ? Math.round(siCoord / totCoord * 100) : 0
-                  rows.push(
-                    <tr key={`coord-${coord}`} className="bg-[#E1F5EE] border-t border-[#c5e8da]">
-                      <td className="px-4 py-2.5 font-bold text-[#085041] text-[12px]">{coord || '—'}</td>
-                      <td className="px-4 py-2.5 text-right font-bold text-[#085041] text-[12px]">{totCoord}</td>
-                      <td className="px-4 py-2.5 text-right font-bold text-[#085041] text-[12px]">{siCoord}</td>
-                      <td className="px-4 py-2.5 text-right font-bold text-[#A32D2D] text-[12px]">{totCoord - siCoord}</td>
-                      <td className="px-4 py-2.5 text-right font-bold text-[#085041] text-[12px]">{pctCoord}%</td>
-                    </tr>
-                  )
-                  liders.forEach((f, i) => {
-                    const pend = f.total - f.si
-                    const pct = f.total ? Math.round(f.si / f.total * 100) : 0
-                    rows.push(
-                      <tr key={`lider-${coord}-${i}`} className="border-t border-[#f1efe8] hover:bg-[#fafaf8]">
-                        <td className="px-4 py-2.5 pl-8 text-[#2C2C2A]">{f.lider || '—'}</td>
-                        <td className="px-4 py-2.5 text-right text-[#888780]">{f.total}</td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-[#085041]">{f.si}</td>
-                        <td className="px-4 py-2.5 text-right text-[#A32D2D]">{pend}</td>
-                        <td className="px-4 py-2.5 text-right text-[#888780]">{pct}%</td>
-                      </tr>
-                    )
-                  })
-                })
-                return rows
-              })()}
-            </tbody>
-            {filas.length > 0 && (() => {
-              const totFil = ejFiltrados.length
-              const siFil = ejFiltrados.filter(e => validaciones.get(e.cedula) === 'SI').length
-              const pctFil = totFil ? Math.round(siFil / totFil * 100) : 0
-              return (
-                <tfoot>
-                  <tr className="border-t-2 border-[#e2e0d8] bg-[#fafaf8] font-bold text-[12px]">
-                    <td className="px-4 py-3">TOTAL</td>
-                    <td className="px-4 py-3 text-right">{totFil}</td>
-                    <td className="px-4 py-3 text-right text-[#085041]">{siFil}</td>
-                    <td className="px-4 py-3 text-right text-[#A32D2D]">{totFil - siFil}</td>
-                    <td className="px-4 py-3 text-right">{pctFil}%</td>
-                  </tr>
-                </tfoot>
-              )
-            })()}
-          </table>
-        </div>
+                return (
+                  <div key={coord} className="bg-white border border-[#e2e0d8] rounded-xl overflow-hidden">
+                    {/* Header coordinador */}
+                    <button onClick={toggle} className="w-full flex items-center justify-between px-4 py-3 bg-[#E1F5EE] hover:bg-[#c5e8da] transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-bold text-[#085041]">{coord || '—'}</span>
+                        <span className={`text-[11px] transition-transform ${abierto ? 'rotate-180' : ''}`}>▼</span>
+                      </div>
+                      <div className="flex gap-4 text-[12px] font-semibold">
+                        <span className="text-[#085041]">✓ {siCoord}</span>
+                        <span className="text-[#A32D2D]">⏳ {totCoord - siCoord}</span>
+                        <span className="text-[#085041]">{pctCoord}%</span>
+                        <span className="text-[#888780] font-normal">{totCoord} ejec.</span>
+                      </div>
+                    </button>
+
+                    {/* Líderes — solo si está abierto */}
+                    {abierto && (
+                      <table className="w-full text-[13px]">
+                        <thead>
+                          <tr className="border-b border-[#f1efe8] text-[11px] text-[#888780] uppercase bg-[#fafaf8]">
+                            <th className="text-left px-4 py-2 font-semibold pl-8">Líder</th>
+                            <th className="text-right px-4 py-2 font-semibold">Ejec.</th>
+                            <th className="text-right px-4 py-2 font-semibold text-[#085041]">SI</th>
+                            <th className="text-right px-4 py-2 font-semibold text-[#A32D2D]">Pend.</th>
+                            <th className="text-right px-4 py-2 font-semibold">%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {liders.map((f, i) => {
+                            const pend = f.total - f.si
+                            const pct = f.total ? Math.round(f.si / f.total * 100) : 0
+                            return (
+                              <tr key={i} className="border-t border-[#f1efe8] hover:bg-[#fafaf8]">
+                                <td className="px-4 py-2.5 pl-8 text-[#2C2C2A]">{f.lider || '—'}</td>
+                                <td className="px-4 py-2.5 text-right text-[#888780]">{f.total}</td>
+                                <td className="px-4 py-2.5 text-right font-semibold text-[#085041]">{f.si}</td>
+                                <td className="px-4 py-2.5 text-right text-[#A32D2D]">{pend}</td>
+                                <td className="px-4 py-2.5 text-right text-[#888780]">{pct}%</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* Total general */}
+              {filas.length > 0 && (
+                <div className="bg-[#fafaf8] border border-[#e2e0d8] rounded-xl px-4 py-3 flex justify-between text-[13px] font-bold">
+                  <span>TOTAL</span>
+                  <div className="flex gap-4">
+                    <span className="text-[#085041]">✓ {siFil}</span>
+                    <span className="text-[#A32D2D]">⏳ {totFil - siFil}</span>
+                    <span>{pctFil}%</span>
+                    <span className="text-[#888780] font-normal">{totFil} ejec.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         </> }
 
