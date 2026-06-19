@@ -332,7 +332,7 @@ export default function AdminPage() {
           <button onClick={descargar} className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#e2e0d8] text-[#444441]">
             ↓ Excel
           </button>
-          <button onClick={() => setUnlocked(false)} className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#444441] text-white">
+          <button onClick={() => { setUnlocked(false); setClave('') }} className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#444441] text-white">
             🔒 Bloquear
           </button>
         </div>
