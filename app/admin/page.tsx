@@ -77,7 +77,13 @@ export default function AdminPage() {
     try {
       const buffer = await file.arrayBuffer()
       const wb = XLSX.read(buffer, { type: 'array' })
-      const ws = wb.Sheets[wb.SheetNames[0]]
+      const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('consolid') || n.toLowerCase().includes('base') || n.toLowerCase().includes('datos')) || wb.SheetNames.find(n => {
+        const ws2 = wb.Sheets[n]
+        const rows2 = XLSX.utils.sheet_to_json<string[]>(ws2, { header: 1, defval: '' })
+        const h = rows2[0] as string[]
+        return h && h.includes('CEDULA') && h.includes('ROL')
+      }) || wb.SheetNames[0]
+      const ws = wb.Sheets[sheetName]
       const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' })
       const hdr = rows[0] as string[]
       const iC = hdr.indexOf('CEDULA'), iN = hdr.indexOf('NOMBRES COMPLETOS')
