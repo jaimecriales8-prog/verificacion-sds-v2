@@ -131,30 +131,34 @@ export default function AdminPage() {
           ? `${row[iN] || ''} ${row[iA] || ''}`.trim()
           : String(row[iN >= 0 ? iN : iA] || '').trim()
 
-        if (rol === 'COORDINADOR') { cc = nom; cl = '' }
-        else if (rol === 'LIDER') {
+        if (!ced || ced === 'nan') continue
+
+        if (rol === 'COORDINADOR') {
+          cc = nom; cl = ''
+          nuevos.push({ cedula: ced, nombre: nom, coordinador: nom, lider: '', indice: ri++ })
+        } else if (rol === 'LIDER') {
           cl = nom || (iL >= 0 ? String(row[iL] || '').trim() : '')
-        }
-        else if (rol === 'EJECUTOR' && ced && ced !== 'nan') {
+          nuevos.push({ cedula: ced, nombre: nom, coordinador: cc, lider: nom, indice: ri++ })
+        } else if (rol === 'EJECUTOR' || rol === 'ENLACE') {
           nuevos.push({ cedula: ced, nombre: nom, coordinador: cc, lider: cl, indice: ri++ })
         }
       }
 
       if (nuevos.length === 0) { showAlerta('er', 'No se encontraron ejecutores en el archivo.'); return }
 
-      // Borrar en bucle hasta limpiar todos (Supabase limita a 1000 por operación)
-      while (true) {
-        const { data: batch } = await supabase.from('ejecutores').select('cedula').limit(1000)
+      // Borrar en bucle con chunks de 200 cédulas
+      let siguen = true
+      while (siguen) {
+        const { data: batch } = await supabase.from('ejecutores').select('cedula').limit(200)
         if (!batch || batch.length === 0) break
         await supabase.from('ejecutores').delete().in('cedula', batch.map(r => r.cedula))
-        if (batch.length < 1000) break
+        siguen = batch.length === 200
       }
 
-      // Insertar en chunks de 500
-      const chunkSize = 500
-      for (let i = 0; i < nuevos.length; i += chunkSize) {
-        const { error } = await supabase.from('ejecutores').insert(nuevos.slice(i, i + chunkSize))
-        if (error) { showAlerta('er', `Error insertando chunk ${i}: ${error.message}`); return }
+      // Insertar en chunks de 200
+      for (let i = 0; i < nuevos.length; i += 200) {
+        const { error } = await supabase.from('ejecutores').insert(nuevos.slice(i, i + 200))
+        if (error) { showAlerta('er', `Error en inserción (fila ${i}): ${error.message}`); return }
       }
 
       if (modo === 'reset') {
