@@ -380,13 +380,19 @@ export default function AdminPage() {
         {/* TAB AJUSTES */}
         {tabActiva === 'ajustes' && (
           <div>
-            <input
-              type="text"
-              placeholder="Buscar por cédula o nombre..."
-              value={busquedaAjuste}
-              onChange={e => setBusquedaAjuste(e.target.value)}
-              className="w-full px-4 py-3 border-[1.5px] border-[#e2e0d8] rounded-xl mb-4 outline-none focus:border-[#1D9E75] text-[14px] bg-white"
-            />
+            <div className="relative mb-4">
+              <input
+                type="text"
+                placeholder="Buscar por cédula o nombre..."
+                value={busquedaAjuste}
+                onChange={e => setBusquedaAjuste(e.target.value)}
+                className="w-full px-4 py-3 pr-10 border-[1.5px] border-[#e2e0d8] rounded-xl outline-none focus:border-[#1D9E75] text-[14px] bg-white"
+              />
+              {busquedaAjuste && (
+                <button onClick={() => setBusquedaAjuste('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#888780] text-xl leading-none">×</button>
+              )}
+            </div>
             <div className="bg-white border border-[#e2e0d8] rounded-xl overflow-hidden">
               {ejecutores
                 .filter(e => {

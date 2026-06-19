@@ -104,8 +104,6 @@ export default function ValidadorPage() {
               <div className="bg-white border-[1.5px] border-[#e2e0d8] rounded-2xl p-5">
                 <div className="text-[17px] font-bold mb-1">{maskName(resultado.ejecutor.nombre)}</div>
                 <div className="text-[12px] text-[#888780] mb-3">CC {cedula}</div>
-                <div className="text-[11px] text-[#888780] mb-1">Coordinador: {resultado.ejecutor.coordinador}</div>
-                <div className="text-[11px] text-[#888780] mb-4">Líder: {resultado.ejecutor.lider}</div>
 
                 {resultado.validado ? (
                   <>
