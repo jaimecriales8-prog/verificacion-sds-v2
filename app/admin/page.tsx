@@ -428,7 +428,7 @@ export default function AdminPage() {
         {/* TAB CONSOLIDADO */}
         {tabActiva === 'consolidado' && <>
         {/* Filtros */}
-        <div className="flex gap-2 flex-wrap mb-4">
+        <div className="flex gap-2 flex-wrap mb-4 items-center">
           <select value={filtroCoord} onChange={e => { setFiltroCoord(e.target.value); setFiltroLider('') }}
             className="flex-1 min-w-[160px] px-3 py-2 border border-[#e2e0d8] rounded-lg text-[13px] bg-white">
             <option value="">Todos los coordinadores</option>
@@ -445,6 +445,12 @@ export default function AdminPage() {
             <option value="SI">Solo SI</option>
             <option value="PEND">Sin validar</option>
           </select>
+          {(filtroCoord || filtroLider || filtroEst) && (
+            <button onClick={() => { setFiltroCoord(''); setFiltroLider(''); setFiltroEst('') }}
+              className="px-3 py-2 rounded-lg text-[12px] font-semibold bg-[#F1EFE8] text-[#444441] whitespace-nowrap">
+              × Limpiar
+            </button>
+          )}
         </div>
 
         {/* Tabla jerárquica acordeón */}
