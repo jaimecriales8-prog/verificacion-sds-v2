@@ -26,6 +26,7 @@ export default function AdminPage() {
   const [filtroCoord, setFiltroCoord] = useState('')
   const [filtroLider, setFiltroLider] = useState('')
   const [filtroEst, setFiltroEst] = useState('')
+  const [totalEjecutoresReal, setTotalEjecutoresReal] = useState(0)
   const [alerta, setAlerta] = useState<{ tipo: 'ok' | 'er'; msg: string } | null>(null)
   const [cargando, setCargando] = useState(false)
   const [modalBase, setModalBase] = useState(false)
@@ -61,10 +62,14 @@ export default function AdminPage() {
       desde += PAGE
     }
 
-    const { data: cfg } = await supabase.from('config').select('value').eq('key', 'validacion_activa').single()
+    const [{ data: cfg }, { data: cfgTotal }] = await Promise.all([
+      supabase.from('config').select('value').eq('key', 'validacion_activa').single(),
+      supabase.from('config').select('value').eq('key', 'total_ejecutores_real').single(),
+    ])
     setEjecutores(todosEjs)
     setValidaciones(new Map(todasVals.map((v: Validacion) => [v.cedula, v.estado])))
     if (cfg) setValidacionActiva(cfg.value !== 'off')
+    if (cfgTotal) setTotalEjecutoresReal(parseInt(cfgTotal.value) || 0)
   }, [])
 
   useEffect(() => {
@@ -123,7 +128,7 @@ export default function AdminPage() {
 
       // Mapa para deduplicar: última aparición de cada cédula gana
       const mapaEjs = new Map<string, Omit<Ejecutor, 'indice'>>()
-      let cc = '', cl = ''
+      let cc = '', cl = '', conteoReal = 0
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i] as string[]
@@ -139,8 +144,9 @@ export default function AdminPage() {
         if (rol === 'COORDINADOR') { cc = nom; cl = '' }
         else if (rol === 'LIDER') { cl = nom }
 
-        // Solo almacenar ejecutores (coordinadores y líderes definen el contexto)
+          // Contar todas las apariciones de EJECUTOR (incluyendo coordinadores/líderes que también son ejecutores)
         if (rol === 'EJECUTOR' || rol === 'ENLACE') {
+          conteoReal++
           mapaEjs.set(ced, { cedula: ced, nombre: nom, coordinador: cc, lider: cl })
         }
       }
@@ -175,8 +181,11 @@ export default function AdminPage() {
         setValidaciones(new Map())
       }
 
+      // Guardar conteo real en config
+      await supabase.from('config').upsert({ key: 'total_ejecutores_real', value: String(conteoReal) })
+      setTotalEjecutoresReal(conteoReal)
       setEjecutores(nuevos)
-      showAlerta('ok', `✓ Base actualizada: ${nuevos.length.toLocaleString()} ejecutores.${modo === 'reset' ? ' Validaciones reiniciadas.' : ''}`)
+      showAlerta('ok', `✓ Base actualizada: ${conteoReal.toLocaleString()} ejecutores.${modo === 'reset' ? ' Validaciones reiniciadas.' : ''}`)
     } catch (err: unknown) {
       showAlerta('er', `Error: ${err instanceof Error ? err.message : 'desconocido'}`)
     } finally {
@@ -350,7 +359,7 @@ export default function AdminPage() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           <div className="bg-white border border-[#e2e0d8] rounded-xl p-4 text-center">
-            <div className="text-[22px] font-bold text-[#2C2C2A]">{total.toLocaleString()}</div>
+            <div className="text-[22px] font-bold text-[#2C2C2A]">{(totalEjecutoresReal || total).toLocaleString()}</div>
             <div className="text-[11px] text-[#888780] mt-1">Total ejecutores</div>
             <div className="text-[11px] text-[#888780]">&nbsp;</div>
           </div>
