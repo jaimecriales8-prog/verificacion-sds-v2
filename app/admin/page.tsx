@@ -373,7 +373,7 @@ export default function AdminPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-5">
+        <div className="grid grid-cols-3 gap-3 mb-5">
           <div className="bg-white border border-[#e2e0d8] rounded-xl p-4 text-center">
             <div className="text-[22px] font-bold text-[#2C2C2A]">{(totalEjecutoresReal || total).toLocaleString()}</div>
             <div className="text-[11px] text-[#888780] mt-1">Total ejecutores</div>
