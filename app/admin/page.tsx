@@ -396,19 +396,23 @@ export default function AdminPage() {
             <div className="text-[11px] text-[#888780] mt-1">Validación</div>
             <div className="text-[11px] text-[#888780]">&nbsp;</div>
           </div>
-          <div className="bg-white border border-[#e2e0d8] rounded-xl p-4 text-center">
+        </div>
+
+        {/* Fila coord/lider */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="bg-[#E6F1FB] border border-[#b8d4f0] rounded-xl p-4 text-center">
             <div className="text-[22px] font-bold text-[#185FA5]">
               {Array.from(cedulasCoord).filter(c => validaciones.get(c) === 'SI').length}
+              <span className="text-[14px] font-normal text-[#5F5E5A]"> / {cedulasCoord.size}</span>
             </div>
-            <div className="text-[11px] text-[#888780] mt-1">Coord. validados</div>
-            <div className="text-[11px] text-[#888780]">de {cedulasCoord.size}</div>
+            <div className="text-[11px] text-[#185FA5] font-semibold mt-1">Coordinadores validados</div>
           </div>
-          <div className="bg-white border border-[#e2e0d8] rounded-xl p-4 text-center">
+          <div className="bg-[#EEEDFE] border border-[#c4c0f5] rounded-xl p-4 text-center">
             <div className="text-[22px] font-bold text-[#534AB7]">
               {Array.from(cedulasLider).filter(c => validaciones.get(c) === 'SI').length}
+              <span className="text-[14px] font-normal text-[#5F5E5A]"> / {cedulasLider.size}</span>
             </div>
-            <div className="text-[11px] text-[#888780] mt-1">Líderes validados</div>
-            <div className="text-[11px] text-[#888780]">de {cedulasLider.size}</div>
+            <div className="text-[11px] text-[#534AB7] font-semibold mt-1">Líderes validados</div>
           </div>
         </div>
 
