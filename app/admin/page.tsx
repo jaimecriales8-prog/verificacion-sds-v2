@@ -4,8 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import * as XLSX from 'xlsx'
 
-const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'SDS2026'
-
 type Ejecutor = { cedula: string; nombre: string; coordinador: string; lider: string; indice: number }
 type Validacion = { cedula: string; estado: string }
 
@@ -18,8 +16,10 @@ type FilaLider = {
 
 export default function AdminPage() {
   const [unlocked, setUnlocked] = useState(false)
+  const [email, setEmail] = useState('')
   const [clave, setClave] = useState('')
   const [claveErr, setClaveErr] = useState('')
+  const [loginCargando, setLoginCargando] = useState(false)
   const [validacionActiva, setValidacionActiva] = useState(true)
   const [ejecutores, setEjecutores] = useState<Ejecutor[]>([])
   const [validaciones, setValidaciones] = useState<Map<string, string>>(new Map())
@@ -81,6 +81,16 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setUnlocked(true)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUnlocked(!!session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
     if (unlocked) {
       cargarDatos()
       const interval = setInterval(cargarDatos, 30000)
@@ -93,14 +103,22 @@ export default function AdminPage() {
     setTimeout(() => setAlerta(null), 5000)
   }
 
-  function checkClave() {
-    if (clave === ADMIN_PASSWORD) {
-      setUnlocked(true)
-      setClaveErr('')
-    } else {
-      setClaveErr('Clave incorrecta.')
+  async function checkClave() {
+    setLoginCargando(true)
+    setClaveErr('')
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: clave })
+    setLoginCargando(false)
+    if (error) {
+      setClaveErr('Correo o contraseña incorrectos.')
       setClave('')
     }
+  }
+
+  async function cerrarSesion() {
+    await supabase.auth.signOut()
+    setUnlocked(false)
+    setEmail('')
+    setClave('')
   }
 
   async function toggleValidacion() {
@@ -311,19 +329,29 @@ export default function AdminPage() {
       <div className="min-h-screen bg-[#fafaf8] flex items-center justify-center px-4">
         <div className="bg-white border border-[#e2e0d8] rounded-2xl p-8 w-full max-w-sm">
           <h1 className="text-lg font-bold text-[#085041] mb-1">Administración</h1>
-          <p className="text-[13px] text-[#888780] mb-6">Ingresa la clave para continuar</p>
+          <p className="text-[13px] text-[#888780] mb-6">Ingresa tus credenciales para continuar</p>
+          <input
+            type="email"
+            placeholder="Correo electrónico..."
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && checkClave()}
+            className="w-full px-4 py-3 border-[1.5px] border-[#e2e0d8] rounded-xl mb-3 outline-none focus:border-[#1D9E75] text-[15px]"
+            autoFocus
+            autoComplete="email"
+          />
           <input
             type="password"
-            placeholder="Clave..."
+            placeholder="Contraseña..."
             value={clave}
             onChange={e => setClave(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && checkClave()}
             className="w-full px-4 py-3 border-[1.5px] border-[#e2e0d8] rounded-xl mb-3 outline-none focus:border-[#1D9E75] text-[15px]"
-            autoFocus
+            autoComplete="current-password"
           />
           {claveErr && <p className="text-[#A32D2D] text-[12px] mb-3">{claveErr}</p>}
-          <button onClick={checkClave} className="w-full py-3 bg-[#085041] text-white rounded-xl font-semibold">
-            Entrar
+          <button onClick={checkClave} disabled={loginCargando} className="w-full py-3 bg-[#085041] text-white rounded-xl font-semibold disabled:opacity-60">
+            {loginCargando ? 'Verificando...' : 'Entrar'}
           </button>
           <div className="mt-4 text-center">
             <a href="/" className="text-[12px] text-[#888780]">← Volver</a>
@@ -359,8 +387,8 @@ export default function AdminPage() {
           <button onClick={descargar} className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#e2e0d8] text-[#444441]">
             ↓ Excel
           </button>
-          <button onClick={() => { setUnlocked(false); setClave('') }} className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#444441] text-white">
-            🔒 Bloquear
+          <button onClick={cerrarSesion} className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#444441] text-white">
+            🔒 Cerrar sesión
           </button>
         </div>
       </div>
