@@ -139,8 +139,10 @@ export default function AdminPage() {
         if (rol === 'COORDINADOR') { cc = nom; cl = '' }
         else if (rol === 'LIDER') { cl = nom }
 
-        // Guardar persona con su contexto actual (sobreescribe si ya existe)
-        mapaEjs.set(ced, { cedula: ced, nombre: nom, coordinador: cc, lider: cl })
+        // Solo almacenar ejecutores (coordinadores y líderes definen el contexto)
+        if (rol === 'EJECUTOR' || rol === 'ENLACE') {
+          mapaEjs.set(ced, { cedula: ced, nombre: nom, coordinador: cc, lider: cl })
+        }
       }
 
       const nuevos: Ejecutor[] = Array.from(mapaEjs.values()).map((e, idx) => ({ ...e, indice: idx }))
