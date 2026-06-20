@@ -276,7 +276,8 @@ export default function AdminPage() {
   }
 
   const totalSI = validaciones.size
-  const total = ejecutores.length
+  const totalEjecs = totalEjecutoresReal || ejecutores.length
+  const total = totalEjecs + cedulasCoord.size + cedulasLider.size
 
   // Construir tabla agrupada por lider
   const coordsSet = new Set(ejecutores.map(e => e.coordinador).filter(Boolean))
