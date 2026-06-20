@@ -27,6 +27,8 @@ export default function AdminPage() {
   const [filtroLider, setFiltroLider] = useState('')
   const [filtroEst, setFiltroEst] = useState('')
   const [totalEjecutoresReal, setTotalEjecutoresReal] = useState(0)
+  const [cedulasCoord, setCedulasCoord] = useState<Set<string>>(new Set())
+  const [cedulasLider, setCedulasLider] = useState<Set<string>>(new Set())
   const [alerta, setAlerta] = useState<{ tipo: 'ok' | 'er'; msg: string } | null>(null)
   const [cargando, setCargando] = useState(false)
   const [modalBase, setModalBase] = useState(false)
@@ -70,6 +72,12 @@ export default function AdminPage() {
     setValidaciones(new Map(todasVals.map((v: Validacion) => [v.cedula, v.estado])))
     if (cfg) setValidacionActiva(cfg.value !== 'off')
     if (cfgTotal) setTotalEjecutoresReal(parseInt(cfgTotal.value) || 0)
+    const [{ data: cfgCoord }, { data: cfgLider }] = await Promise.all([
+      supabase.from('config').select('value').eq('key', 'cedulas_coordinadores').single(),
+      supabase.from('config').select('value').eq('key', 'cedulas_lideres').single(),
+    ])
+    if (cfgCoord?.value) setCedulasCoord(new Set(JSON.parse(cfgCoord.value)))
+    if (cfgLider?.value) setCedulasLider(new Set(JSON.parse(cfgLider.value)))
   }, [])
 
   useEffect(() => {
@@ -128,6 +136,8 @@ export default function AdminPage() {
 
       // Mapa para deduplicar: última aparición de cada cédula gana
       const mapaEjs = new Map<string, Omit<Ejecutor, 'indice'>>()
+      const setCoord = new Set<string>()
+      const setLider = new Set<string>()
       let cc = '', cl = '', conteoReal = 0
 
       for (let i = 1; i < rows.length; i++) {
@@ -140,9 +150,9 @@ export default function AdminPage() {
 
         if (!ced || ced === 'nan' || !nom) continue
 
-        // Actualizar contexto jerárquico
-        if (rol === 'COORDINADOR') { cc = nom; cl = '' }
-        else if (rol === 'LIDER') { cl = nom }
+        // Actualizar contexto jerárquico y registrar rol
+        if (rol === 'COORDINADOR') { cc = nom; cl = ''; setCoord.add(ced) }
+        else if (rol === 'LIDER') { cl = nom; setLider.add(ced) }
 
           // Contar todas las apariciones de EJECUTOR (incluyendo coordinadores/líderes que también son ejecutores)
         if (rol === 'EJECUTOR' || rol === 'ENLACE') {
@@ -181,8 +191,14 @@ export default function AdminPage() {
         setValidaciones(new Map())
       }
 
-      // Guardar conteo real en config
-      await supabase.from('config').upsert({ key: 'total_ejecutores_real', value: String(conteoReal) })
+      // Guardar conteo real y listas de coordinadores/líderes en config
+      await Promise.all([
+        supabase.from('config').upsert({ key: 'total_ejecutores_real', value: String(conteoReal) }),
+        supabase.from('config').upsert({ key: 'cedulas_coordinadores', value: JSON.stringify(Array.from(setCoord)) }),
+        supabase.from('config').upsert({ key: 'cedulas_lideres', value: JSON.stringify(Array.from(setLider)) }),
+      ])
+      setCedulasCoord(setCoord)
+      setCedulasLider(setLider)
       setTotalEjecutoresReal(conteoReal)
       setEjecutores(nuevos)
       showAlerta('ok', `✓ Base actualizada: ${conteoReal.toLocaleString()} ejecutores.${modo === 'reset' ? ' Validaciones reiniciadas.' : ''}`)
@@ -357,7 +373,7 @@ export default function AdminPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-5">
           <div className="bg-white border border-[#e2e0d8] rounded-xl p-4 text-center">
             <div className="text-[22px] font-bold text-[#2C2C2A]">{(totalEjecutoresReal || total).toLocaleString()}</div>
             <div className="text-[11px] text-[#888780] mt-1">Total ejecutores</div>
@@ -378,7 +394,21 @@ export default function AdminPage() {
               {validacionActiva ? 'Activa' : 'Apagada'}
             </div>
             <div className="text-[11px] text-[#888780] mt-1">Validación</div>
-            <div className="text-[11px] text-[#888780]">{total.toLocaleString()} ejecutores</div>
+            <div className="text-[11px] text-[#888780]">&nbsp;</div>
+          </div>
+          <div className="bg-white border border-[#e2e0d8] rounded-xl p-4 text-center">
+            <div className="text-[22px] font-bold text-[#185FA5]">
+              {Array.from(cedulasCoord).filter(c => validaciones.get(c) === 'SI').length}
+            </div>
+            <div className="text-[11px] text-[#888780] mt-1">Coord. validados</div>
+            <div className="text-[11px] text-[#888780]">de {cedulasCoord.size}</div>
+          </div>
+          <div className="bg-white border border-[#e2e0d8] rounded-xl p-4 text-center">
+            <div className="text-[22px] font-bold text-[#534AB7]">
+              {Array.from(cedulasLider).filter(c => validaciones.get(c) === 'SI').length}
+            </div>
+            <div className="text-[11px] text-[#888780] mt-1">Líderes validados</div>
+            <div className="text-[11px] text-[#888780]">de {cedulasLider.size}</div>
           </div>
         </div>
 
