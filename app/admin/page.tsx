@@ -123,10 +123,10 @@ export default function AdminPage() {
 
   async function toggleValidacion() {
     const nueva = !validacionActiva
-    const msg = nueva ? '¿Encender la validación?' : '¿Apagar la validación? Los validadores no podrán ingresar documentos.'
-    if (!confirm(msg)) return
-    await supabase.from('config').upsert({ key: 'validacion_activa', value: nueva ? 'on' : 'off' })
+    const { error } = await supabase.from('config').upsert({ key: 'validacion_activa', value: nueva ? 'on' : 'off' })
+    if (error) { showAlerta('er', `Error al cambiar validación: ${error.message}`); return }
     setValidacionActiva(nueva)
+    showAlerta('ok', nueva ? '✓ Validación encendida' : '✓ Validación apagada')
   }
 
   async function cargarExcel(file: File, modo: 'mantener' | 'reset') {
