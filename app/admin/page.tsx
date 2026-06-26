@@ -146,6 +146,7 @@ export default function AdminPage() {
       const iC = hdr.indexOf('CEDULA'), iN = hdr.indexOf('NOMBRES COMPLETOS')
       const iA = hdr.indexOf('APELLIDOS COMPLETO'), iR = hdr.indexOf('ROL')
       const iL = hdr.indexOf('LIDER')
+      const iV = hdr.indexOf('VALIDACION SI')
 
       if (iC < 0 || iR < 0) {
         showAlerta('er', `Formato no reconocido. Columnas: ${hdr.slice(0, 8).join(', ')}`)
@@ -179,6 +180,20 @@ export default function AdminPage() {
         }
       }
 
+      // Recolectar validaciones SI del Excel
+      const validacionesExcel: { cedula: string; estado: string; updated_at: string }[] = []
+      if (iV >= 0) {
+        const ahora = new Date().toISOString()
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i] as string[]
+          const ced = String(row[iC] || '').trim().replace(/\.0$/, '')
+          const val = String(row[iV] || '').trim().toUpperCase()
+          if (ced && ced !== 'nan' && val === 'SI') {
+            validacionesExcel.push({ cedula: ced, estado: 'SI', updated_at: ahora })
+          }
+        }
+      }
+
       const nuevos: Ejecutor[] = Array.from(mapaEjs.values()).map((e, idx) => ({ ...e, indice: idx }))
 
       if (nuevos.length === 0) { showAlerta('er', 'No se encontraron ejecutores en el archivo.'); return }
@@ -204,9 +219,16 @@ export default function AdminPage() {
       // Actualizar nuevos para el mensaje final
       nuevos.length = 0; unicos.forEach(u => nuevos.push(u))
 
-      if (modo === 'reset') {
-        await supabase.from('validaciones').delete().neq('cedula', '__never__')
-        setValidaciones(new Map())
+      // Limpiar validaciones existentes
+      await supabase.from('validaciones').delete().neq('cedula', '__never__')
+      setValidaciones(new Map())
+
+      // Importar validaciones SI del Excel si existen
+      if (validacionesExcel.length > 0) {
+        for (let i = 0; i < validacionesExcel.length; i += 200) {
+          await supabase.from('validaciones').upsert(validacionesExcel.slice(i, i + 200))
+        }
+        setValidaciones(new Map(validacionesExcel.map(v => [v.cedula, v.estado])))
       }
 
       // Guardar conteo real y listas de coordinadores/líderes en config
@@ -219,7 +241,7 @@ export default function AdminPage() {
       setCedulasLider(setLider)
       setTotalEjecutoresReal(conteoReal)
       setEjecutores(nuevos)
-      showAlerta('ok', `✓ Base actualizada: ${conteoReal.toLocaleString()} ejecutores.${modo === 'reset' ? ' Validaciones reiniciadas.' : ''}`)
+      showAlerta('ok', `✓ Base actualizada: ${conteoReal.toLocaleString()} ejecutores${validacionesExcel.length > 0 ? `, ${validacionesExcel.length.toLocaleString()} validaciones importadas del Excel` : ''}.`)
     } catch (err: unknown) {
       showAlerta('er', `Error: ${err instanceof Error ? err.message : 'desconocido'}`)
     } finally {
