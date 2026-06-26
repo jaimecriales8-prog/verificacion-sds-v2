@@ -146,7 +146,7 @@ export default function AdminPage() {
       const iC = hdr.indexOf('CEDULA'), iN = hdr.indexOf('NOMBRES COMPLETOS')
       const iA = hdr.indexOf('APELLIDOS COMPLETO'), iR = hdr.indexOf('ROL')
       const iL = hdr.indexOf('LIDER')
-      const iV = hdr.indexOf('VALIDACION SI')
+      const iV = hdr.findIndex(h => String(h || '').toUpperCase().replace(/\s+/g, ' ').trim().includes('VALIDACION'))
 
       if (iC < 0 || iR < 0) {
         showAlerta('er', `Formato no reconocido. Columnas: ${hdr.slice(0, 8).join(', ')}`)
